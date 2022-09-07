@@ -22,6 +22,11 @@
         </p>
       </div>
       <div class="card-footer text-muted"></div>
+      <form method="POST" action="/urls/<%= id %>">
+        <label>New URL:</label>
+        <input type="text" name="longURL"> 
+        <button type="submit" class="btn btn-primary">Update</button>
+      </form>
     </div>
     <!-- Bootstrap JS -->
     <script
