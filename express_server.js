@@ -18,8 +18,8 @@ const generateRandomString = () => {
 
 app.use(express.urlencoded({ extended: true }));
 
-app.get("/", (req, res) => {
-  res.send("Hello!");
+app.get("/register", (req, res) => {
+  res.render("urls_reg");
 });
 
 app.listen(PORT, () => {
