@@ -30,8 +30,23 @@ const generateRandomString = () => {
   return Math.random().toString(36).slice(2,8);
 }
 
+const getUserByEmail = (email) => {
+  for (let object in users) {
+    if (users[object].email === email) {
+      return users[object];
+    }
+  }
+  return null;
+}
+
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+app.get("/login", (req, res) => {
+  const userId = req.cookies.user_id;
+  const user = users[userId];
+  res.render("urls_login", { user });
+});
 
 app.get("/register", (req, res) => {
   const userId = req.cookies.user_id;
@@ -76,23 +91,38 @@ app.get("/urls/:id", (req, res) => {
 });
 
 app.post("/register", (req, res) => {
+  if(!req.body.email || !req.body.password) {
+    // res.send('Error: 400');
+    return res.status(400).send("Error: email and password cannot be empty.");
+  } 
+  if (getUserByEmail(req.body.email) !== null) {
+    // res.send('Error: 400');
+    return res.status(400).send("Error: Email already exists.");
+  }
   userId = generateRandomString();
   users[userId] = {
     id: userId,
     email: req.body.email,
     password: req.body.password,
   };
+
   res.cookie("user_id", userId);
   res.redirect("/urls");
 });
 
 app.post("/login", (req, res) => {
-  res.cookie("username", req.body.username);
+  if (getUserByEmail(req.body.email) === null || 
+  req.body.password !== getUserByEmail(req.body.email).password) {
+    return res.status(403).send("Error: Incorrect email or password.")
+  }
+  console.log(users);
+  const userId = getUserByEmail(req.body.email).id;
+  res.cookie("user_id", userId);
   res.redirect("/urls");
 });
 
 app.post("/logout", (req, res) => {
-  res.clearCookie("username");
+  res.clearCookie("user_id");
   res.redirect("/urls");
 });
 
