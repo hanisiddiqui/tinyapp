@@ -1,8 +1,9 @@
 const express = require("express");
 const app = express();
 const PORT = 8080; // default port 8080
-const cookieParser = require('cookie-parser');
+const cookieSession = require('cookie-session');
 const bcrypt = require("bcryptjs");
+const { getUserByEmail } = require("./helpers.js");
 
 
 app.set("view engine", "ejs");
@@ -24,15 +25,6 @@ const generateRandomString = () => {
   return Math.random().toString(36).slice(2,8);
 }
 
-const getUserByEmail = (email) => {
-  for (let object in users) {
-    if (users[object].email === email) {
-      return users[object];
-    }
-  }
-  return null;
-}
-
 const urlsForUser = (userId) => {
   const urls = {};
   for (object in urlDatabase) {
@@ -44,28 +36,38 @@ const urlsForUser = (userId) => {
 }
 
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
+app.use(cookieSession({
+  name: 'session',
+  keys: ['key1'],
+
+  // Cookie Options
+  maxAge: 24 * 60 * 60 * 1000 // 24 hours
+}))
 
 app.get("/login", (req, res) => {
-  if(req.cookies.user_id) {
+  if (req.session.user_id) {
     return res.redirect("/urls");
   }
-  const userId = req.cookies.user_id;
+  const userId = req.session.user_id;
   const user = users[userId];
   res.render("urls_login", { user });
 });
 
 app.get("/register", (req, res) => {
-  if(req.cookies.user_id) {
+  if (req.session.user_id) {
     return res.redirect("/urls");
   }
-  const userId = req.cookies.user_id;
+  const userId = req.session.user_id;
   const user = users[userId];
   res.render("urls_reg", { user });
 });
 
 app.get("/", (req, res) => {
-  res.send("Hello!");
+  if (req.session.user_id) {
+    res.redirect("/urls");
+  } else {
+    res.redirect("/login");
+  }
 });
 
 app.get("/u/:id", (req, res) => {
@@ -76,52 +78,45 @@ app.get("/urls.json", (req, res) => {
   res.json(urlDatabase);
 });
 
-app.get("/hello", (req, res) => {
-  res.send("<html><body>Hello <b>World</b></body></html>\n");
-});
-
 app.get("/urls", (req, res) => {
-  if (!req.cookies.user_id) {
+  if (!req.session.user_id) {
     return res.redirect("/login");
   }
-  const urls = urlsForUser(req.cookies.user_id);
-  const userId = req.cookies.user_id;
+  const urls = urlsForUser(req.session.user_id);
+  const userId = req.session.user_id;
   const user = users[userId];
   const templateVars = { urls, user };
   res.render("urls_index", templateVars);
 });
 
 app.get("/urls/new", (req, res) => {
-  if (!req.cookies.user_id) {
+  if (!req.session.user_id) {
     res.redirect("/login");
   }
-  const userId = req.cookies.user_id;
+  const userId = req.session.user_id;
   const user = users[userId];
   res.render("urls_new", { user });
 });
 
 app.get("/urls/:id", (req, res) => {
-  if (!req.cookies.user_id) {
+  if (!req.session.user_id) {
     return res.send("Error: not logged in");
-  }
-  if (req.cookies.user_id !== urlDatabase[req.params.id].userID) {
+  } else if (req.session.user_id !== urlDatabase[req.params.id].userID) {
     return res.send("Error: Do not own this URL");
-  }
-  if (!(req.params.id in urlDatabase)) {
+  } else if (!(req.params.id in urlDatabase)) {
     return res.send("Short URL doesn't exist");
   }
-  const userId = req.cookies.user_id;
+  const userId = req.session.user_id;
   const user = users[userId];
   const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id].longURL, user };
   res.render("urls_show", templateVars);
 });
 
 app.post("/register", (req, res) => {
-  if(!req.body.email || !req.body.password) {
+  if (!req.body.email || !req.body.password) {
     // res.send('Error: 400');
     return res.status(400).send("Error: email and password cannot be empty.");
-  } 
-  if (getUserByEmail(req.body.email) !== null) {
+  } else if (getUserByEmail(req.body.email, users) !== null) {
     // res.send('Error: 400');
     return res.status(400).send("Error: Email already exists.");
   }
@@ -133,33 +128,31 @@ app.post("/register", (req, res) => {
     password: hashedPassword,
   };
 
-  res.cookie("user_id", userId);
+  req.session.user_id = userId;
   res.redirect("/urls");
 });
 
 app.post("/login", (req, res) => {
-  if (getUserByEmail(req.body.email) === null || 
-  !bcrypt.compareSync(req.body.password, getUserByEmail(req.body.email).password)) {
+  if (getUserByEmail(req.body.email, users) === null || 
+  !bcrypt.compareSync(req.body.password, getUserByEmail(req.body.email, users).password)) {
     return res.status(403).send("Error: Incorrect email or password.")
   }
-  const userId = getUserByEmail(req.body.email).id;
-  res.cookie("user_id", userId);
+  const userId = getUserByEmail(req.body.email, users).id;
+  req.session.user_id = userId;
   res.redirect("/urls");
 });
 
 app.post("/logout", (req, res) => {
-  res.clearCookie("user_id");
+  req.session = null;
   res.redirect("/urls");
 });
 
 app.post("/urls/:id", (req, res) => {
   if (!(req.params.id in urlDatabase)) {
     return res.send("Error: URL does not exist");
-  }
-  else if (!req.cookies.user_id) {
+  } else if (!req.session.user_id) {
     return res.send("Error: Not logged in");
-  }
-  else if (req.cookies.user_id !== urlDatabase[req.params.id].userID) {
+  } else if (req.session.user_id !== urlDatabase[req.params.id].userID) {
     return res.send("Error: you are not the owner of this URL");
   }
   const newURL = req.body['longURL'];
@@ -171,11 +164,9 @@ app.post("/urls/:id", (req, res) => {
 app.post("/urls/:id/delete", (req, res) => {
   if (!(req.params.id in urlDatabase)) {
     return res.send("Error: URL does not exist");
-  }
-  else if (!req.cookies.user_id) {
+  } else if (!req.session.user_id) {
     return res.send("Error: Not logged in");
-  }
-  else if (req.cookies.user_id !== urlDatabase[req.params.id].userID) {
+  } else if (req.session.user_id !== urlDatabase[req.params.id].userID) {
     return res.send("Error: you are not the owner of this URL");
   }
   delete urlDatabase[req.params.id];
@@ -183,14 +174,14 @@ app.post("/urls/:id/delete", (req, res) => {
 });
 
 app.post("/urls", (req, res) => {
-  if (!req.cookies.user_id) {
+  if (!req.session.user_id) {
     res.send("Not logged in, therefore cannot shorten URL");
   }
   const newURL = req.body.longURL;
   const shortURL = generateRandomString();
   urlDatabase[shortURL] = {
     longURL : newURL,
-    userID: req.cookies.user_id,
+    userID: req.session.user_id,
   };
   res.redirect(`/urls/${shortURL}`); // Respond with 'Ok' (we will replace this)
 });
