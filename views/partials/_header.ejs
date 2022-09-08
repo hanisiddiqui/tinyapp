@@ -16,6 +16,7 @@
       <div class="navbar-nav">
         <a class="nav-item nav-link" href="/urls">My URLs</a>
         <a class="nav-item nav-link" href="/urls/new">Create New URL</a>
+<<<<<<< HEAD
         <% if(username){ %>
           <form method="POST" action="/logout">
             <button type="submit" class="btn btn-primary">Logout</button>
@@ -25,6 +26,19 @@
           <form method="POST" action="/login">
             <input type="text" name="username"> 
             <button type="submit" class="btn btn-primary">Sign in</button>
+=======
+        <% if(user){ %>
+          <label> Welcome <%= user.email %></label>
+          <form method="POST" action="/logout">
+            <button type="submit" class="btn btn-primary">Logout</button>
+          </form>
+        <% } else{ %>  
+          <form method="GET" action="/login">
+            <button type="submit" class="btn btn-primary">Login</button>
+          </form>
+          <form method="GET" action="/register">
+            <button type="submit" class="btn btn-primary">Register</button>
+>>>>>>> feature/user-registration
           </form>
        <% } %>
       </div>
