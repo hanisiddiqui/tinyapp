@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 const PORT = 8080; // default port 8080
 const cookieParser = require('cookie-parser');
+const bcrypt = require("bcryptjs");
 
 
 app.set("view engine", "ejs");
@@ -17,18 +18,7 @@ const urlDatabase = {
   },
 };
 
-const users = {
-  userRandomID: {
-    id: "userRandomID",
-    email: "user@example.com",
-    password: "purple-monkey-dinosaur",
-  },
-  user2RandomID: {
-    id: "user2RandomID",
-    email: "user2@example.com",
-    password: "dishwasher-funk",
-  },
-};
+const users = {};
 
 const generateRandomString = () => {
   return Math.random().toString(36).slice(2,8);
@@ -95,7 +85,6 @@ app.get("/urls", (req, res) => {
     return res.redirect("/login");
   }
   const urls = urlsForUser(req.cookies.user_id);
-  console.log(urls);
   const userId = req.cookies.user_id;
   const user = users[userId];
   const templateVars = { urls, user };
@@ -136,11 +125,12 @@ app.post("/register", (req, res) => {
     // res.send('Error: 400');
     return res.status(400).send("Error: Email already exists.");
   }
+  const hashedPassword = bcrypt.hashSync(req.body.password, 10);
   userId = generateRandomString();
   users[userId] = {
     id: userId,
     email: req.body.email,
-    password: req.body.password,
+    password: hashedPassword,
   };
 
   res.cookie("user_id", userId);
@@ -149,10 +139,9 @@ app.post("/register", (req, res) => {
 
 app.post("/login", (req, res) => {
   if (getUserByEmail(req.body.email) === null || 
-  req.body.password !== getUserByEmail(req.body.email).password) {
+  !bcrypt.compareSync(req.body.password, getUserByEmail(req.body.email).password)) {
     return res.status(403).send("Error: Incorrect email or password.")
   }
-  console.log(users);
   const userId = getUserByEmail(req.body.email).id;
   res.cookie("user_id", userId);
   res.redirect("/urls");
@@ -203,7 +192,6 @@ app.post("/urls", (req, res) => {
     longURL : newURL,
     userID: req.cookies.user_id,
   };
-  console.log(urlDatabase);
   res.redirect(`/urls/${shortURL}`); // Respond with 'Ok' (we will replace this)
 });
 
