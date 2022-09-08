@@ -3,14 +3,18 @@ const app = express();
 const PORT = 8080; // default port 8080
 const cookieParser = require('cookie-parser');
 
-let longURL = "";
-
 
 app.set("view engine", "ejs");
 
 const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+  b6UTxQ: {
+    longURL: "https://www.tsn.ca",
+    userID: "aJ48lW",
+  },
+  i3BoGr: {
+    longURL: "https://www.google.ca",
+    userID: "aJ48lW",
+  },
 };
 
 const users = {
@@ -39,16 +43,32 @@ const getUserByEmail = (email) => {
   return null;
 }
 
+const urlsForUser = (userId) => {
+  const urls = {};
+  for (object in urlDatabase) {
+    if (urlDatabase[object].userID === userId) {
+      urls[object] = urlDatabase[object];
+    }
+  }
+  return urls;
+}
+
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.get("/login", (req, res) => {
+  if(req.cookies.user_id) {
+    return res.redirect("/urls");
+  }
   const userId = req.cookies.user_id;
   const user = users[userId];
   res.render("urls_login", { user });
 });
 
 app.get("/register", (req, res) => {
+  if(req.cookies.user_id) {
+    return res.redirect("/urls");
+  }
   const userId = req.cookies.user_id;
   const user = users[userId];
   res.render("urls_reg", { user });
@@ -58,8 +78,8 @@ app.get("/", (req, res) => {
   res.send("Hello!");
 });
 
-app.listen(PORT, () => {
-  console.log(`Example app listening on port ${PORT}!`);
+app.get("/u/:id", (req, res) => {
+  res.redirect(longURL);
 });
 
 app.get("/urls.json", (req, res) => {
@@ -71,22 +91,39 @@ app.get("/hello", (req, res) => {
 });
 
 app.get("/urls", (req, res) => {
+  if (!req.cookies.user_id) {
+    return res.redirect("/login");
+  }
+  const urls = urlsForUser(req.cookies.user_id);
+  console.log(urls);
   const userId = req.cookies.user_id;
   const user = users[userId];
-  const templateVars = { urls: urlDatabase, user };
+  const templateVars = { urls, user };
   res.render("urls_index", templateVars);
 });
 
 app.get("/urls/new", (req, res) => {
+  if (!req.cookies.user_id) {
+    res.redirect("/login");
+  }
   const userId = req.cookies.user_id;
   const user = users[userId];
   res.render("urls_new", { user });
 });
 
 app.get("/urls/:id", (req, res) => {
+  if (!req.cookies.user_id) {
+    return res.send("Error: not logged in");
+  }
+  if (req.cookies.user_id !== urlDatabase[req.params.id].userID) {
+    return res.send("Error: Do not own this URL");
+  }
+  if (!(req.params.id in urlDatabase)) {
+    return res.send("Short URL doesn't exist");
+  }
   const userId = req.cookies.user_id;
   const user = users[userId];
-  const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id], user };
+  const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id].longURL, user };
   res.render("urls_show", templateVars);
 });
 
@@ -127,24 +164,49 @@ app.post("/logout", (req, res) => {
 });
 
 app.post("/urls/:id", (req, res) => {
-  longURL = req.body['longURL'];
+  if (!(req.params.id in urlDatabase)) {
+    return res.send("Error: URL does not exist");
+  }
+  else if (!req.cookies.user_id) {
+    return res.send("Error: Not logged in");
+  }
+  else if (req.cookies.user_id !== urlDatabase[req.params.id].userID) {
+    return res.send("Error: you are not the owner of this URL");
+  }
+  const newURL = req.body['longURL'];
   const shortURL = req.params.id;
-  urlDatabase[shortURL] = longURL;
+  urlDatabase[shortURL].longURL = newURL;
   res.redirect("/urls");
 });
 
 app.post("/urls/:id/delete", (req, res) => {
+  if (!(req.params.id in urlDatabase)) {
+    return res.send("Error: URL does not exist");
+  }
+  else if (!req.cookies.user_id) {
+    return res.send("Error: Not logged in");
+  }
+  else if (req.cookies.user_id !== urlDatabase[req.params.id].userID) {
+    return res.send("Error: you are not the owner of this URL");
+  }
   delete urlDatabase[req.params.id];
   res.redirect("/urls");
 });
 
 app.post("/urls", (req, res) => {
-  longURL = req.body['longURL'];
+  if (!req.cookies.user_id) {
+    res.send("Not logged in, therefore cannot shorten URL");
+  }
+  const newURL = req.body.longURL;
   const shortURL = generateRandomString();
-  urlDatabase[shortURL] = longURL;
+  urlDatabase[shortURL] = {
+    longURL : newURL,
+    userID: req.cookies.user_id,
+  };
+  console.log(urlDatabase);
   res.redirect(`/urls/${shortURL}`); // Respond with 'Ok' (we will replace this)
 });
 
-app.get("/u/:id", (req, res) => {
-  res.redirect(longURL);
+app.listen(PORT, () => {
+  console.log(`Example app listening on port ${PORT}!`);
 });
