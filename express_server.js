@@ -3,37 +3,13 @@ const app = express();
 const PORT = 8080; // default port 8080
 const cookieSession = require('cookie-session');
 const bcrypt = require("bcryptjs");
-const { getUserByEmail } = require("./helpers.js");
+const { getUserByEmail, urlsForUser, generateRandomString } = require("./helpers.js");
 
 
 app.set("view engine", "ejs");
 
-const urlDatabase = {
-  b6UTxQ: {
-    longURL: "https://www.tsn.ca",
-    userID: "aJ48lW",
-  },
-  i3BoGr: {
-    longURL: "https://www.google.ca",
-    userID: "aJ48lW",
-  },
-};
-
+const urlDatabase = {};
 const users = {};
-
-const generateRandomString = () => {
-  return Math.random().toString(36).slice(2,8);
-}
-
-const urlsForUser = (userId) => {
-  const urls = {};
-  for (object in urlDatabase) {
-    if (urlDatabase[object].userID === userId) {
-      urls[object] = urlDatabase[object];
-    }
-  }
-  return urls;
-}
 
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieSession({
