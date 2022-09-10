@@ -4,14 +4,13 @@ const getUserByEmail = (email, database) => {
       return database[object];
     }
   }
-  return null;
 }
 
-const urlsForUser = (userId) => {
-  const urls = {};
-  for (object in urlDatabase) {
-    if (urlDatabase[object].userID === userId) {
-      urls[object] = urlDatabase[object];
+const urlsForUser = (userId, database) => {
+  let urls = {};
+  for (object in database) {
+    if (database[object].userID === userId) {
+      urls[object] = database[object];
     }
   }
   return urls;
