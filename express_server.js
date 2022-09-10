@@ -16,7 +16,6 @@ app.use(cookieSession({
   name: 'session',
   keys: ['key1'],
 
-  // Cookie Options
   maxAge: 24 * 60 * 60 * 1000 // 24 hours
 }))
 
@@ -187,7 +186,7 @@ app.post("/urls", (req, res) => {
     userID: req.session.user_id,
   };
 
-  res.redirect(`/urls/${shortURL}`); // Respond with 'Ok' (we will replace this)
+  res.redirect(`/urls/${shortURL}`); 
 });
 
 app.listen(PORT, () => {
